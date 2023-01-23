@@ -16,12 +16,12 @@ async def handler2(websocket):
 
 
 async def sock1():
-    async with websockets.serve(handler1, "", 8001):
+    async with websockets.serve(handler1, "localhost", 8001):
         await asyncio.Future()
 
 
 async def sock2():
-    async with websockets.serve(handler2, "", 8002):
+    async with websockets.serve(handler2, "localhost", 8002):
         await asyncio.Future()
 
 
@@ -31,4 +31,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
