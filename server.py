@@ -22,6 +22,7 @@ ssl_context.load_cert_chain(localhost_pem)
 
 
 async def consumer_handler(websocket):
+    # TODO: соединение перестает работать если спикер отключается до того, как отключился зритель.
     try:
         while True:
             path = websocket.path
@@ -31,7 +32,6 @@ async def consumer_handler(websocket):
             speaker = path_data.speaker
             connection_data = dict(username=username, user_role=user_role, speaker=speaker, path=path)
             if user_role == "speaker":
-                # if not any(connection_data["username"] == username for c in connections):
                 if websocket not in connected_users:
                     connections.append(connection_data)
                 message = await websocket.recv()
@@ -43,15 +43,21 @@ async def consumer_handler(websocket):
                 for c in connections:
                     if c["speaker"] == speaker:
                         try:
-                            await websocket.send(c["bytes"])
+                            if c["bytes"] != b'':
+                                await asyncio.create_task(websocket.send(c["bytes"]))
+                                await asyncio.sleep(0.1)  # Добавил таймаут, чтобы повторно не отправлялись одни и те же сообщения.
                         except KeyError:
-                            pass
+                            await asyncio.sleep(0.001)  # Без этого ожидания не работает!!!
+                            continue
     finally:
-        connected_users.remove(websocket)
-        # Удаляем соединение из словаря с данными по соединениям.
-        for i in range(len(connections)):
-            if connections[i]["path"] == websocket.path:
-                del connections[i]
+        try:
+            connected_users.remove(websocket)
+            # Удаляем соединение из словаря с данными по соединениям.
+            for i in range(len(connections)):
+                if connections[i]["path"] == websocket.path:
+                    del connections[i]
+        except KeyError:
+            pass
 
 
 async def audio_handler1(websocket):
@@ -81,7 +87,7 @@ async def audio_handler2(websocket):
         for chunk_len in chunk_lengths:
             offset = current_bytes
             print("Offset: ", offset)
-            time.sleep(0.01)
+            await asyncio.sleep(0.01)
             with open(file, "rb") as f:
                 f.seek(offset)
                 chunk = f.read(chunk_len)
